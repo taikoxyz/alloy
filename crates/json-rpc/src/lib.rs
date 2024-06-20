@@ -89,7 +89,7 @@ mod notification;
 pub use notification::{EthNotification, PubSubItem};
 
 mod packet;
-pub use packet::{BorrowedResponsePacket, RequestPacket, ResponsePacket, ResponsePacketErrorsIter};
+pub use packet::{BorrowedResponsePacket, RequestPacket, ResponsePacket};
 
 mod request;
 pub use request::{PartiallySerializedRequest, Request, RequestMeta, SerializedRequest};

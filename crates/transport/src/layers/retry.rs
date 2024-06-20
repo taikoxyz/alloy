@@ -2,7 +2,7 @@ use crate::{
     error::{TransportError, TransportErrorKind},
     RpcErrorExt, TransportFut,
 };
-use alloy_json_rpc::{RequestPacket, Response, ResponsePacket, ResponsePacketErrorsIter};
+use alloy_json_rpc::{RequestPacket, Response, ResponsePacket};
 use std::{
     sync::{
         atomic::{AtomicU32, Ordering},
@@ -149,49 +149,36 @@ where
                 let err;
                 let res = inner.call(request.clone()).await;
                 match res {
-                    Ok(res) => {
-                        match res.iter_errors() {
-                            ResponsePacketErrorsIter::Single(Some(e)) => {
-                                if let Some(e) = e.payload.as_error() {
-                                    err = TransportError::ErrorResp(e.clone());
-                                } else {
-                                    this.requests_enqueued.fetch_sub(1, Ordering::SeqCst);
-                                    return Ok(res);
-                                }
-                            }
-                            ResponsePacketErrorsIter::Batch(batch) => {
-                                for r in batch.into_iter() {
-                                    if r.is_error() {
-                                        batch_errs.push(r);
-                                    } else {
-                                        batch_success.push(r);
-                                        // Remove corresponding request from the
-                                        // RequestPacket::Batch
-                                        request.remove_by_id(&r.id);
+                    Ok(ResponsePacket::Single(res)) => {
+                        if let Some(e) = res.payload.as_error() {
+                            err = TransportError::ErrorResp(e.clone());
+                        } else {
+                            this.requests_enqueued.fetch_sub(1, Ordering::SeqCst);
+                            return Ok(ResponsePacket::from(vec![res]));
+                        }
+                    }
+                    Ok(ResponsePacket::Batch(batch_res)) => {
+                        for r in batch_res {
+                            if r.is_error() {
+                                batch_errs.push(r);
+                            } else {
+                                batch_success.push(r.clone());
+                                // Remove corresponding request from the batch
+                                request.remove_by_id(&r.id);
 
-                                        if request.is_empty() {
-                                            let response_packet =
-                                                ResponsePacket::from(batch_success);
-                                            batch_success.clear();
-                                            batch_errs.clear();
+                                if request.is_empty() {
+                                    let response_packet =
+                                        ResponsePacket::from(batch_success.clone());
+                                    batch_success.clear();
+                                    batch_errs.clear();
 
-                                            return Ok(response_packet);
-                                        }
-                                    }
-                                }
-
-                                if !batch_errs.is_empty() {
-                                    let e = batch_errs
-                                        .first()
-                                        .unwrap()
-                                        .payload
-                                        .as_error()
-                                        .unwrap()
-                                        .clone();
-                                    err = TransportError::ErrorResp(e)
+                                    return Ok(response_packet);
                                 }
                             }
                         }
+
+                        let e = batch_errs.first().unwrap().payload.as_error().unwrap().clone();
+                        err = TransportError::ErrorResp(e);
                     }
                     Err(e) => err = e,
                 }
