@@ -102,6 +102,13 @@ impl RequestPacket {
             self.push(req);
         }
     }
+
+    /// Remove a request by Id.
+    pub fn remove_by_id(&mut self, id: &Id) {
+        if let Self::Batch(reqs) = self {
+            reqs.iter().filter(|r| r.id() != id)
+        }
+    }
 }
 
 /// A [`ResponsePacket`] is a [`Response`] or a batch of responses.
@@ -279,7 +286,7 @@ impl<Payload, ErrData> ResponsePacket<Payload, ErrData> {
 
 /// An Iterator over the [ErrorPayload]s in a [ResponsePacket].
 #[derive(Clone, Debug)]
-enum ResponsePacketErrorsIter<'a, Payload, ErrData> {
+pub enum ResponsePacketErrorsIter<'a, Payload, ErrData> {
     Single(Option<&'a Response<Payload, ErrData>>),
     Batch(std::slice::Iter<'a, Response<Payload, ErrData>>),
 }

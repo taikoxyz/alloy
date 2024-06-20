@@ -2,7 +2,7 @@ use crate::{
     error::{TransportError, TransportErrorKind},
     RpcErrorExt, TransportFut,
 };
-use alloy_json_rpc::{RequestPacket, ResponsePacket};
+use alloy_json_rpc::{RequestPacket, Response, ResponsePacket, ResponsePacketErrorsIter};
 use std::{
     sync::{
         atomic::{AtomicU32, Ordering},
@@ -138,21 +138,59 @@ where
         let inner = self.inner.clone();
         let this = self.clone();
         let mut inner = std::mem::replace(&mut self.inner, inner);
+        let mut request = request.clone();
         Box::pin(async move {
             let ahead_in_queue = this.requests_enqueued.fetch_add(1, Ordering::SeqCst) as u64;
             let mut rate_limit_retry_number: u32 = 0;
             let mut timeout_retries: u32 = 0;
+            let mut batch_success: Vec<Response> = vec![];
+            let mut batch_errs: Vec<Response> = vec![];
             loop {
                 let err;
                 let res = inner.call(request.clone()).await;
-
                 match res {
                     Ok(res) => {
-                        if let Some(e) = res.as_error() {
-                            err = TransportError::ErrorResp(e.clone())
-                        } else {
-                            this.requests_enqueued.fetch_sub(1, Ordering::SeqCst);
-                            return Ok(res);
+                        match res.iter_errors() {
+                            ResponsePacketErrorsIter::Single(Some(e)) => {
+                                if let Some(e) = e.payload.as_error() {
+                                    err = TransportError::ErrorResp(e.clone());
+                                } else {
+                                    this.requests_enqueued.fetch_sub(1, Ordering::SeqCst);
+                                    return Ok(res);
+                                }
+                            }
+                            ResponsePacketErrorsIter::Batch(batch) => {
+                                for r in batch.into_iter() {
+                                    if r.is_error() {
+                                        batch_errs.push(r);
+                                    } else {
+                                        batch_success.push(r);
+                                        // Remove corresponding request from the
+                                        // RequestPacket::Batch
+                                        request.remove_by_id(&r.id);
+
+                                        if request.is_empty() {
+                                            let response_packet =
+                                                ResponsePacket::from(batch_success);
+                                            batch_success.clear();
+                                            batch_errs.clear();
+
+                                            return Ok(response_packet);
+                                        }
+                                    }
+                                }
+
+                                if !batch_errs.is_empty() {
+                                    let e = batch_errs
+                                        .first()
+                                        .unwrap()
+                                        .payload
+                                        .as_error()
+                                        .unwrap()
+                                        .clone();
+                                    err = TransportError::ErrorResp(e)
+                                }
+                            }
                         }
                     }
                     Err(e) => err = e,
