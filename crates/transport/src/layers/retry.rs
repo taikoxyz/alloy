@@ -138,7 +138,7 @@ where
         let inner = self.inner.clone();
         let this = self.clone();
         let mut inner = std::mem::replace(&mut self.inner, inner);
-        let mut request = request.clone();
+        let mut req = request;
         Box::pin(async move {
             let ahead_in_queue = this.requests_enqueued.fetch_add(1, Ordering::SeqCst) as u64;
             let mut rate_limit_retry_number: u32 = 0;
@@ -147,7 +147,7 @@ where
             let mut batch_errs: Vec<Response> = vec![];
             loop {
                 let err;
-                let res = inner.call(request.clone()).await;
+                let res = inner.call(req.clone()).await;
                 match res {
                     Ok(ResponsePacket::Single(res)) => {
                         if let Some(e) = res.payload.as_error() {
@@ -164,9 +164,9 @@ where
                             } else {
                                 batch_success.push(r.clone());
                                 // Remove corresponding request from the batch
-                                request.remove_by_id(&r.id);
+                                req.remove_by_id(&r.id);
 
-                                if request.is_empty() {
+                                if req.is_empty() {
                                     let response_packet =
                                         ResponsePacket::from(batch_success.clone());
                                     batch_success.clear();
