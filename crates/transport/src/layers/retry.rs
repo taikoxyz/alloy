@@ -187,6 +187,19 @@ where
                 if should_retry {
                     rate_limit_retry_number += 1;
                     if rate_limit_retry_number > this.max_rate_limit_retries {
+                        // If it's a batch request then we combine the successful and failed
+                        // responses and return them as a batch
+                        if !batch_success.is_empty() {
+                            // Join batch_success and batch_errs
+                            let mut batch_calls = batch_success;
+                            batch_calls.append(&mut batch_errs);
+                            return Ok(ResponsePacket::from(batch_calls));
+                        }
+
+                        if !batch_errs.is_empty() && batch_success.is_empty() {
+                            return Ok(ResponsePacket::from(batch_errs));
+                        }
+
                         return Err(TransportErrorKind::custom_str(&format!(
                             "Max retries exceeded {}",
                             err
@@ -237,6 +250,19 @@ where
                     }
 
                     this.requests_enqueued.fetch_sub(1, Ordering::SeqCst);
+                    // If it's a batch request then we combine the successful and failed
+                    // responses and return them as a batch
+                    if !batch_success.is_empty() {
+                        // Join batch_success and batch_errs
+                        let mut batch_calls = batch_success;
+                        batch_calls.append(&mut batch_errs);
+                        return Ok(ResponsePacket::from(batch_calls));
+                    }
+
+                    if !batch_errs.is_empty() && batch_success.is_empty() {
+                        return Ok(ResponsePacket::from(batch_errs));
+                    }
+
                     return Err(err);
                 }
             }
