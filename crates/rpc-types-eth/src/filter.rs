@@ -288,6 +288,9 @@ impl Default for FilterBlockOption {
 pub struct Filter {
     /// Filter block options, specifying on which blocks the filter should match.
     // https://eips.ethereum.org/EIPS/eip-234
+    //
+    // Note that `eth_subscribe` does not support block options, so this field is not used in
+    // `eth_subscribe` filters.
     pub block_option: FilterBlockOption,
     /// Address
     pub address: FilterSet<Address>,
