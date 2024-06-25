@@ -50,6 +50,7 @@ ssz = [
     "alloy-eips/ssz",
 ]
 kzg = ["alloy-consensus/kzg"]
+taiko = []
 
 [dev-dependencies]
 alloy-primitives = { workspace = true, features = [
