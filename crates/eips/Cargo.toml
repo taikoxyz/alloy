@@ -31,7 +31,13 @@ alloy-serde = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 
 # kzg
-c-kzg = { workspace = true, optional = true }
+# kzg
+# For setting the CfgEnv KZGSettings. Enabled by c-kzg flag.
+c-kzg = { package = "c-kzg-taiko", git = "https://github.com/smtmfft/c-kzg-4844", branch = "for-alpha7", default-features = false, optional = true, features = [
+    "preload-kzg-settings",
+    "no-threads",
+] }
+
 derive_more = { workspace = true, features = [
     "as_ref",
     "deref",
