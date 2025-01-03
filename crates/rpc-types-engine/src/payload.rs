@@ -188,6 +188,7 @@ pub struct ExecutionPayloadV1 {
     /// The block hash of the block.
     pub block_hash: B256,
     /// The transactions of the block.
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "alloy_serde::null_as_default"))]
     pub transactions: Vec<Bytes>,
 }
 
