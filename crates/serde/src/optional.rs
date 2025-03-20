@@ -10,6 +10,7 @@ where
 {
     let s: Option<T> = Deserialize::deserialize(deserializer)
         .inspect_err(|e| {
+            #[cfg(feature = "std")]
             println!("<alloy-serde::Option>: Error deserializing optional value: {}", e);
         })
         .ok();
