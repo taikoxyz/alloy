@@ -119,7 +119,7 @@ pub struct Header {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parent_beacon_block_root: Option<B256>,
     /// EIP-7685 requests root.
-    #[serde(default, rename = "requests_hash", skip_serializing_if = "Option::is_none")]
+    #[serde(default, rename = "requestsHash", skip_serializing_if = "Option::is_none")]
     pub requests_root: Option<B256>,
 }
 
