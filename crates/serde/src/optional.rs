@@ -8,6 +8,10 @@ where
     T: Deserialize<'de> + Default,
     D: Deserializer<'de>,
 {
-    let s: Option<T> = Deserialize::deserialize(deserializer)?;
+    let s: Option<T> = Deserialize::deserialize(deserializer)
+        .inspect_err(|e| {
+            println!("<alloy-serde::Option>: Error deserializing optional value: {}", e);
+        })
+        .ok();
     Ok(s.unwrap_or_default())
 }
